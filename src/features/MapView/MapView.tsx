@@ -1,122 +1,113 @@
-import { useEffect, useState } from "react";
-import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
+import { useEffect, useRef, useState } from "react";
+import Map, { Source, Layer } from "react-map-gl/mapbox";
 import type { ViewStateChangeEvent } from "react-map-gl/mapbox";
-import { lineString } from "@turf/helpers";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { MAPBOX_TOKEN } from "../mapboxConfig";
 import gpsData from "../../data/frontend_data_gps.json";
+import Car from "../components/Car";
+import { lineString, point as turfPoint } from "@turf/helpers";
+import along from "@turf/along";
+import bearing from "@turf/bearing";
+import length from "@turf/length";
+import type { Feature, LineString } from "geojson";
 
-const gpsPoints =
-  gpsData.courses?.flatMap((course: any) =>
-    Array.isArray(course.gps)
-      ? course.gps
-          .filter((p: any) => p.latitude && p.longitude)
-          .map((p: any) => ({
-            position: [p.longitude, p.latitude] as [number, number],
-            timestamp: p.acquisition_time_unix,
-          }))
-      : []
-  ) ?? [];
+const OFFSET = 0.0001;
+const gpsPoints = gpsData.courses?.[0]?.gps ?? [];
+const coordinates = gpsPoints.map((p: any) => [p.longitude, p.latitude]);
 
-const coordinates = gpsPoints.map((point) => point.position);
-const routeGeoJSON = coordinates.length >= 2 ? lineString(coordinates) : null;
+const route = lineString(coordinates);
+const totalDistance = length(route, { units: "kilometers" });
 
 const MapView = () => {
   const [viewState, setViewState] = useState({
-    latitude: coordinates[0]?.[1] ?? -23.963214,
-    longitude: coordinates[0]?.[0] ?? -46.28054,
-    zoom: 13,
+    latitude: coordinates[0]?.[1] ?? 0,
+    longitude: coordinates[0]?.[0] ?? 0,
+    zoom: 15,
   });
 
-  const [currentPosition, setCurrentPosition] = useState<[number, number]>(
-    coordinates[0]
+  const [currentPos, setCurrentPos] = useState<[number, number]>(
+    (coordinates[0] ?? [0, 0]) as [number, number]
   );
+  const [angle, setAngle] = useState(0);
 
-  const speedFactor = 100;
+  const speed = 80;
+  const distanceRef = useRef(0);
+  const animationRef = useRef<number | null>(null);
+  const prevTimeRef = useRef<number | null>(null);
+  const angleRef = useRef(0);
+
+  const routeGeoJSON: Feature<LineString> = {
+    type: "Feature",
+    geometry: route.geometry,
+    properties: {},
+  };
 
   useEffect(() => {
-    if (gpsPoints.length < 2) return;
+    distanceRef.current = 0;
+    prevTimeRef.current = null;
 
-    let currentSegmentIndex = 0;
-    let animationFrameId: number;
-    let animationStartTime: number | null = null;
-    let segmentDuration = 1000;
+    const animate = (timestamp: number) => {
+      if (!prevTimeRef.current) prevTimeRef.current = timestamp;
+      const delta = (timestamp - prevTimeRef.current) / 1000;
+      prevTimeRef.current = timestamp;
 
-    const animateVehicle = (timestamp: number) => {
-      if (!animationStartTime) animationStartTime = timestamp;
+      const speedKms = speed / 3600;
+      distanceRef.current += speedKms * delta;
 
-      const elapsedTime = timestamp - animationStartTime;
-      const progress = Math.min(elapsedTime / segmentDuration, 1);
-
-      const { position: startPosition } = gpsPoints[currentSegmentIndex];
-      const { position: endPosition } = gpsPoints[currentSegmentIndex + 1];
-
-      const interpolatedPosition: [number, number] = [
-        startPosition[0] + (endPosition[0] - startPosition[0]) * progress,
-        startPosition[1] + (endPosition[1] - startPosition[1]) * progress,
-      ];
-
-      setCurrentPosition(interpolatedPosition);
-
-      if (progress < 1) {
-        animationFrameId = requestAnimationFrame(animateVehicle);
-      } else {
-        currentSegmentIndex =
-          currentSegmentIndex + 1 >= gpsPoints.length - 1
-            ? 0
-            : currentSegmentIndex + 1;
-
-        const timeA = gpsPoints[currentSegmentIndex].timestamp;
-        const timeB = gpsPoints[currentSegmentIndex + 1].timestamp;
-        const timeDifferenceMs = (timeB - timeA) * 1000;
-
-        segmentDuration = timeDifferenceMs / speedFactor;
-        animationStartTime = null;
-        animationFrameId = requestAnimationFrame(animateVehicle);
+      if (distanceRef.current > totalDistance) {
+        cancelAnimationFrame(animationRef.current!);
+        return;
       }
+
+      const current = along(route, distanceRef.current, { units: "kilometers" });
+      const prev = along(route, Math.max(distanceRef.current - OFFSET, 0), {
+        units: "kilometers",
+      });
+      const next = along(route, Math.min(distanceRef.current + OFFSET, totalDistance), {
+        units: "kilometers",
+      });
+
+      const rawAngle = bearing(
+        turfPoint(prev.geometry.coordinates),
+        turfPoint(next.geometry.coordinates)
+      );
+
+      const spriteAngle = (rawAngle + 360) % 360;
+      const deltaAngle = ((spriteAngle - angleRef.current + 540) % 360) - 180;
+      const smoothAngle = (angleRef.current + deltaAngle * 0.2 + 360) % 360;
+
+      angleRef.current = smoothAngle;
+
+      setCurrentPos(current.geometry.coordinates as [number, number]);
+      setAngle(smoothAngle);
+
+      animationRef.current = requestAnimationFrame(animate);
     };
 
-    animationFrameId = requestAnimationFrame(animateVehicle);
-
+    animationRef.current = requestAnimationFrame(animate);
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, []);
 
   return (
     <Map
       {...viewState}
-      onMove={(evt: ViewStateChangeEvent) => setViewState(evt.viewState)}
+      onMove={(e: ViewStateChangeEvent) => setViewState(e.viewState)}
       style={{ width: "100%", height: "100vh" }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
       mapboxAccessToken={MAPBOX_TOKEN}
     >
-      {routeGeoJSON && (
-        <Source id="route" type="geojson" data={routeGeoJSON}>
-          <Layer
-            id="route-layer"
-            type="line"
-            paint={{
-              "line-color": "#ff6b6b",
-              "line-width": 4,
-            }}
-          />
-        </Source>
-      )}
+      <Source id="route" type="geojson" data={routeGeoJSON}>
+        <Layer
+          id="route-line"
+          type="line"
+          layout={{ "line-join": "round", "line-cap": "round" }}
+          paint={{ "line-color": "#3b9ddd", "line-width": 4 }}
+        />
+      </Source>
 
-      {currentPosition && (
-        <Marker longitude={currentPosition[0]} latitude={currentPosition[1]}>
-          <div
-            style={{
-              width: 10,
-              height: 10,
-              backgroundColor: "#00ff00",
-              borderRadius: "50%",
-              border: "2px solid white",
-            }}
-          />
-        </Marker>
-      )}
+      <Car position={currentPos} direction={angle} />
     </Map>
   );
 };
