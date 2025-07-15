@@ -13,7 +13,7 @@ import type { Feature, LineString } from "geojson";
 import DashboardPanel from "../components/DashboardPanel/DashboardPanel";
 import { useTranslation } from "react-i18next";
 import HUD from "../components/HUD/HUD";
-import ModalStop from "../../contexts/ModalStop/ModalStop";
+import ModalStop from "../components/ModalStop/ModalStop";
 
 const OFFSET = 0.0001;
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
