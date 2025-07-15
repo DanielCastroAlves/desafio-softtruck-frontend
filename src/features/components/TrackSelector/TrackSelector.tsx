@@ -1,8 +1,10 @@
 import { useGps } from "../../../contexts/GpsContext";
+import { useTranslation } from "react-i18next";
 import gpsData from "../../../data/frontend_data_gps.json";
 
 const TrackSelector = () => {
   const { selectedCourse, setSelectedCourse, reset } = useGps();
+  const { t } = useTranslation();
 
   const totalCourses = gpsData.courses.length;
 
@@ -26,10 +28,10 @@ const TrackSelector = () => {
         border: "none",
         borderRadius: "6px",
         cursor: "pointer",
-        zIndex: 10,
+        zIndex: 10
       }}
     >
-      Trocar Rota ({selectedCourse + 1}/{totalCourses})
+      {t("changeRoute")} ({selectedCourse + 1}/{totalCourses})
     </button>
   );
 };
