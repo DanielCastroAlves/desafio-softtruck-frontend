@@ -1,15 +1,9 @@
-// src/features/components/HUD/HUD.tsx
-
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { useGps } from "../../../contexts/GpsContext";
 import gpsData from "../../../data/frontend_data_gps_enriched_with_address.json";
 import { PieChart, Pie, Cell } from "recharts";
-
-interface HUDProps {
-  tempoParado: number;
-  tempoRodando: number;
-}
+import type { HUDProps } from "../../../types/hud";
 
 function formatElapsed(s: number) {
   if (!Number.isFinite(s) || s < 0) return "0:00";

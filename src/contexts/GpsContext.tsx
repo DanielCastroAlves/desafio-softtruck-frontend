@@ -7,24 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import gpsData from "../data/frontend_data_gps_enriched_with_address.json";
-
-type SpeedMode = "auto" | "manual";
-type PositionType = {
-  lat: number;
-  lng: number;
-  vel: number;
-  ang: number;
-  time: number;
-  idx?: number; // Posição atual no array de gps
-};
-
-type StopInfo = {
-  startedAt: number;
-  endedAt: number;
-  duration: number;
-  lat: number;
-  lng: number;
-};
+import type { PositionType, StopInfo, SpeedMode } from "../types/gps";
 
 type GpsContextType = {
   position: PositionType;
@@ -46,7 +29,7 @@ type GpsContextType = {
   isStopped: boolean;
   stoppedAt: number | null;
   stoppedElapsed: number;
-  setStoppedElapsedManual: (val: number) => void; // NOVO!
+  setStoppedElapsedManual: (val: number) => void;
   runningElapsed: number;
   stopHistory: StopInfo[];
 
@@ -84,7 +67,7 @@ export const GpsProvider = ({ children }: { children: ReactNode }) => {
   const [showStopModal, setShowStopModal] = useState(false);
   const [stopDuration, setStopDuration] = useState(0);
 
-  // NOVO: setter manual para uso no slider do modal
+  // Setter manual para o slider do modal
   const setStoppedElapsedManual = (val: number) => setStoppedElapsed(val);
 
   // Atualização de cronômetros
@@ -227,7 +210,7 @@ export const GpsProvider = ({ children }: { children: ReactNode }) => {
         isStopped,
         stoppedAt,
         stoppedElapsed,
-        setStoppedElapsedManual, // NOVO!
+        setStoppedElapsedManual,
         runningElapsed,
         stopHistory,
 
