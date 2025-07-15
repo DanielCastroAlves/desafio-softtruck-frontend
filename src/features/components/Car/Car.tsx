@@ -1,5 +1,6 @@
 import { Marker } from "react-map-gl/mapbox";
-import sprite from "../../assets/cars.png";
+import sprite from "../../../assets/cars.png";
+import styles from "./Car.module.scss";
 
 type CarProps = {
   position: [number, number];
@@ -17,16 +18,13 @@ const Car = ({ position, direction }: CarProps) => {
   return (
     <Marker longitude={position[0]} latitude={position[1]} anchor="center">
       <div
+        className={styles.car}
         style={{
           width: `${frameWidth}px`,
           height: `${frameHeight}px`,
           backgroundImage: `url(${sprite})`,
           backgroundPosition: `-${frameIndex * frameWidth}px 0px`,
-          backgroundRepeat: "no-repeat",
           backgroundSize: `${frameWidth * totalFrames}px ${frameHeight}px`,
-          imageRendering: "pixelated",
-          transform: "scaleX(-1)",
-          transformOrigin: "center center",
         }}
       />
     </Marker>

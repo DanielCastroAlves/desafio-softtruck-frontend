@@ -5,7 +5,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { MAPBOX_TOKEN } from "../mapboxConfig";
 import gpsData from "../../data/frontend_data_gps.json";
-import Car from "../components/Car";
+import Car from "../components/Car/Car";
 import TrackSelector from "../components/TrackSelector/TrackSelector";
 import LanguageSelector from "../components/LanguageSelector/LanguageSelector";
 
