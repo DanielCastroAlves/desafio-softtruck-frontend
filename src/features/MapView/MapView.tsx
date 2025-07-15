@@ -1,4 +1,3 @@
-// src/pages/MapView.tsx
 import { useEffect, useRef, useState } from "react";
 import Map, { Source, Layer } from "react-map-gl/mapbox";
 import type { ViewStateChangeEvent } from "react-map-gl/mapbox";
@@ -7,18 +6,18 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { MAPBOX_TOKEN } from "../mapboxConfig";
 import gpsData from "../../data/frontend_data_gps.json";
 import Car from "../components/Car";
-
+import HUD from "../components/HUD/HUD";
+import TrackSelector from "../components/TrackSelector/TrackSelector";
+import { useGps } from "../../contexts/GpsContext";
 
 import { lineString, point as turfPoint } from "@turf/helpers";
 import along from "@turf/along";
 import bearing from "@turf/bearing";
 import length from "@turf/length";
 import type { Feature, LineString } from "geojson";
-import { useGps } from "../../contexts/GpsContext";
-import TrackSelector from "../components/TrackSelector/TrackSelector";
 
 const OFFSET = 0.0001;
-const speed = 80; // km/h fictício
+const speed = 80;
 
 const MapView = () => {
   const { selectedCourse } = useGps();
@@ -38,6 +37,8 @@ const MapView = () => {
     (coordinates[0] ?? [0, 0]) as [number, number]
   );
   const [angle, setAngle] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [currentSpeed, setCurrentSpeed] = useState(0);
 
   const distanceRef = useRef(0);
   const animationRef = useRef<number | null>(null);
@@ -53,14 +54,18 @@ const MapView = () => {
   useEffect(() => {
     distanceRef.current = 0;
     prevTimeRef.current = null;
+    setElapsedTime(0);
 
     const animate = (timestamp: number) => {
       if (!prevTimeRef.current) prevTimeRef.current = timestamp;
       const delta = (timestamp - prevTimeRef.current) / 1000;
       prevTimeRef.current = timestamp;
 
+      setElapsedTime((prev) => prev + delta);
+
       const speedKms = speed / 3600;
       distanceRef.current += speedKms * delta;
+      setCurrentSpeed(speedKms * 3600);
 
       if (distanceRef.current > totalDistance) {
         cancelAnimationFrame(animationRef.current!);
@@ -119,6 +124,8 @@ const MapView = () => {
 
         <Car position={currentPos} direction={angle} />
       </Map>
+
+      <HUD speed={currentSpeed} angle={angle} time={elapsedTime} />
     </>
   );
 };
