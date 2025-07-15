@@ -16,6 +16,7 @@ import bearing from "@turf/bearing";
 import length from "@turf/length";
 import type { Feature, LineString } from "geojson";
 import HUD from "../components/HUD/HUD";
+import RouteMarkers from "../components/RouteMarkers/RouteMarkers";
 
 const OFFSET = 0.0001;
 const speed = 80; // km/h fictício
@@ -23,7 +24,7 @@ const speed = 80; // km/h fictício
 const MapView = () => {
   const { selectedCourse } = useGps();
   const gpsPoints = gpsData.courses?.[selectedCourse]?.gps ?? [];
-  const coordinates = gpsPoints.map((p: any) => [p.longitude, p.latitude]);
+const coordinates = gpsPoints.map((p: any) => [p.longitude, p.latitude] as [number, number]);
 
   const route = lineString(coordinates);
   const totalDistance = length(route, { units: "kilometers" });
@@ -123,6 +124,7 @@ const MapView = () => {
         </Source>
 
         <Car position={currentPos} direction={angle} />
+        <RouteMarkers coordinates={coordinates} />
       </Map>
       <HUD speed={speed} angle={angle} time={elapsedTime} />
     </>
