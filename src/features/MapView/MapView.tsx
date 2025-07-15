@@ -1,24 +1,33 @@
+// src/pages/MapView.tsx
 import { useEffect, useRef, useState } from "react";
 import Map, { Source, Layer } from "react-map-gl/mapbox";
 import type { ViewStateChangeEvent } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
+
 import { MAPBOX_TOKEN } from "../mapboxConfig";
 import gpsData from "../../data/frontend_data_gps.json";
 import Car from "../components/Car";
+
+
 import { lineString, point as turfPoint } from "@turf/helpers";
 import along from "@turf/along";
 import bearing from "@turf/bearing";
 import length from "@turf/length";
 import type { Feature, LineString } from "geojson";
+import { useGps } from "../../contexts/GpsContext";
+import TrackSelector from "../components/TrackSelector/TrackSelector";
 
 const OFFSET = 0.0001;
-const gpsPoints = gpsData.courses?.[0]?.gps ?? [];
-const coordinates = gpsPoints.map((p: any) => [p.longitude, p.latitude]);
-
-const route = lineString(coordinates);
-const totalDistance = length(route, { units: "kilometers" });
+const speed = 80; // km/h fictício
 
 const MapView = () => {
+  const { selectedCourse } = useGps();
+  const gpsPoints = gpsData.courses?.[selectedCourse]?.gps ?? [];
+  const coordinates = gpsPoints.map((p: any) => [p.longitude, p.latitude]);
+
+  const route = lineString(coordinates);
+  const totalDistance = length(route, { units: "kilometers" });
+
   const [viewState, setViewState] = useState({
     latitude: coordinates[0]?.[1] ?? 0,
     longitude: coordinates[0]?.[0] ?? 0,
@@ -30,7 +39,6 @@ const MapView = () => {
   );
   const [angle, setAngle] = useState(0);
 
-  const speed = 80;
   const distanceRef = useRef(0);
   const animationRef = useRef<number | null>(null);
   const prevTimeRef = useRef<number | null>(null);
@@ -88,27 +96,30 @@ const MapView = () => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, []);
+  }, [selectedCourse]);
 
   return (
-    <Map
-      {...viewState}
-      onMove={(e: ViewStateChangeEvent) => setViewState(e.viewState)}
-      style={{ width: "100%", height: "100vh" }}
-      mapStyle="mapbox://styles/mapbox/streets-v11"
-      mapboxAccessToken={MAPBOX_TOKEN}
-    >
-      <Source id="route" type="geojson" data={routeGeoJSON}>
-        <Layer
-          id="route-line"
-          type="line"
-          layout={{ "line-join": "round", "line-cap": "round" }}
-          paint={{ "line-color": "#3b9ddd", "line-width": 4 }}
-        />
-      </Source>
+    <>
+      <TrackSelector />
+      <Map
+        {...viewState}
+        onMove={(e: ViewStateChangeEvent) => setViewState(e.viewState)}
+        style={{ width: "100%", height: "100vh" }}
+        mapStyle="mapbox://styles/mapbox/streets-v11"
+        mapboxAccessToken={MAPBOX_TOKEN}
+      >
+        <Source id="route" type="geojson" data={routeGeoJSON}>
+          <Layer
+            id="route-line"
+            type="line"
+            layout={{ "line-join": "round", "line-cap": "round" }}
+            paint={{ "line-color": "#3b9ddd", "line-width": 4 }}
+          />
+        </Source>
 
-      <Car position={currentPos} direction={angle} />
-    </Map>
+        <Car position={currentPos} direction={angle} />
+      </Map>
+    </>
   );
 };
 
