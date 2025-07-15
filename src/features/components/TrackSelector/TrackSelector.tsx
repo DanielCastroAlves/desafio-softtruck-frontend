@@ -1,6 +1,7 @@
+import gpsData from "../../../data/frontend_data_gps.json";
 import { useGps } from "../../../contexts/GpsContext";
 import { useTranslation } from "react-i18next";
-import gpsData from "../../../data/frontend_data_gps.json";
+import styles from "./TrackSelector.module.scss";
 
 const TrackSelector = () => {
   const { selectedCourse, setSelectedCourse, reset } = useGps();
@@ -15,22 +16,7 @@ const TrackSelector = () => {
   };
 
   return (
-    <button
-      onClick={handleChange}
-      style={{
-        position: "absolute",
-        top: 20,
-        right: 20,
-        padding: "10px 16px",
-        fontSize: "16px",
-        backgroundColor: "#3b9ddd",
-        color: "white",
-        border: "none",
-        borderRadius: "6px",
-        cursor: "pointer",
-        zIndex: 10
-      }}
-    >
+    <button className={styles.button} onClick={handleChange}>
       {t("changeRoute")} ({selectedCourse + 1}/{totalCourses})
     </button>
   );
