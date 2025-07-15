@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
-import gpsData from "../../data/frontend_data_gps.json";
+import gpsData from "../../data/frontend_data_gps_enriched_with_address.json";
 import { useGps } from "../../contexts/GpsContext";
 import { lineString, point as turfPoint } from "@turf/helpers";
 import along from "@turf/along";
@@ -9,37 +9,71 @@ import bearing from "@turf/bearing";
 import length from "@turf/length";
 import Car from "../components/Car/Car";
 import RouteMarkers from "../components/RouteMarkers/RouteMarkers";
-import TrackSelector from "../components/TrackSelector/TrackSelector";
-import LanguageSelector from "../components/LanguageSelector/LanguageSelector";
-import HUD from "../components/HUD/HUD";
-import Controls from "../components/Controls/Controls";
 import type { Feature, LineString } from "geojson";
-import { MAPBOX_TOKEN } from "../mapboxConfig";
+import DashboardPanel from "../components/DashboardPanel/DashboardPanel";
+import { useTranslation } from "react-i18next";
+import HUD from "../components/HUD/HUD";
+import ModalStop from "../../contexts/ModalStop/ModalStop";
 
 const OFFSET = 0.0001;
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
 
 const MapView = () => {
   const {
     position,
     setPosition,
     isPlaying,
+    togglePlay,
+    reset,
     speed,
+    setSpeed,
+    speedMode,
+    setSpeedMode,
+    realSpeed,
     selectedCourse,
+    setSelectedCourse,
     resetSignal,
     setRealSpeed,
+    showStopModal,
+    setShowStopModal,
+    stopDuration,
+    stoppedElapsed,
+    setStoppedElapsedManual,
   } = useGps();
+
+  const { i18n } = useTranslation();
+  const currentLanguage = i18n.language;
+
+  // Contadores de tempo
+  const [paradoDesde, setParadoDesde] = useState<number | null>(null);
+  const [rodandoDesde, setRodandoDesde] = useState<number | null>(null);
+
+  function handleTrocarRota() {
+    setSelectedCourse((prev) => (prev + 1) % gpsData.courses.length);
+  }
+  function changeLanguage(lang: string) {
+    i18n.changeLanguage(lang);
+  }
 
   const distanceRef = useRef(0);
   const animationRef = useRef<number | null>(null);
   const prevTimeRef = useRef<number | null>(null);
   const angleRef = useRef(0);
 
-  const gpsPoints = gpsData.courses[selectedCourse]?.gps.map((point: any) => ({
-    lat: point.latitude,
-    lng: point.longitude,
-  })) ?? [];
+  const gpsPoints =
+    gpsData.courses[selectedCourse]?.gps.map((point: any, idx: number) => ({
+      lat: point.latitude,
+      lng: point.longitude,
+      speed: point.speed,
+      idx,
+      time: point.acquisition_time_unix,
+      direction: point.direction,
+    })) ?? [];
 
-  const coordinates: [number, number][] = gpsPoints.map((point) => [point.lng, point.lat]);
+  const coordinates: [number, number][] = gpsPoints.map((point) => [
+    point.lng,
+    point.lat,
+  ]);
   const route = lineString(coordinates);
   const totalDistance = length(route, { units: "kilometers" });
 
@@ -52,13 +86,13 @@ const MapView = () => {
     properties: {},
   };
 
-  // Ajuste: Garante posição inicial (ou após reset)
+  // Reset tempos ao trocar rota/resetar
   useEffect(() => {
     distanceRef.current = 0;
     prevTimeRef.current = null;
     angleRef.current = 0;
-
-    // Seta o carro no primeiro ponto mesmo se não estiver rodando
+    setParadoDesde(null);
+    setRodandoDesde(Date.now());
     if (coordinates.length > 0) {
       setPosition({
         lat: coordinates[0][1],
@@ -66,21 +100,66 @@ const MapView = () => {
         vel: 0,
         ang: 0,
         time: Date.now(),
+        idx: 0,
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCourse, resetSignal]); // resetSignal = clique no reset
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourse, resetSignal]);
 
-  // Lógica da animação do carro
+  // Controle da animação do carro
   useEffect(() => {
-    if (!isPlaying) return; // só anima se está tocando/play
+    if (!isPlaying) return;
+
+    let pulandoParada = false;
 
     const animate = (timestamp: number) => {
       if (!prevTimeRef.current) prevTimeRef.current = timestamp;
       const delta = (timestamp - prevTimeRef.current) / 1000;
       prevTimeRef.current = timestamp;
 
-      const currentSpeedKms = speed / 3600;
+      let closestIndex = Math.round(
+        (distanceRef.current / totalDistance) * (gpsPoints.length - 1)
+      );
+      closestIndex = Math.max(0, Math.min(closestIndex, gpsPoints.length - 1));
+      let realPoint = gpsData.courses[selectedCourse]?.gps[closestIndex];
+      let realSpeedNow = realPoint?.speed ?? 0;
+
+      setRealSpeed(realSpeedNow);
+
+      // Está parado?
+      const isStopped = realSpeedNow === 0;
+      if (isStopped) {
+        if (paradoDesde == null) setParadoDesde(Date.now());
+        if (rodandoDesde != null) setRodandoDesde(null);
+      } else {
+        if (rodandoDesde == null) setRodandoDesde(Date.now());
+        if (paradoDesde != null) setParadoDesde(null);
+      }
+
+      // Modal de parada longa
+      if (isStopped && !showStopModal && !pulandoParada) {
+        // Busca quanto tempo ficará parado
+        let idx = closestIndex;
+        while (idx < gpsPoints.length && gpsPoints[idx]?.speed === 0) {
+          idx++;
+        }
+        let waitSeconds = 0;
+        if (idx < gpsPoints.length) {
+          waitSeconds = gpsPoints[idx].time - gpsPoints[closestIndex].time;
+        }
+        if (waitSeconds >= 10) {
+          // Troque para 60 para só alertar paradas longas!
+          setShowStopModal(true);
+          return; // Pausa animação
+        }
+      }
+
+      // Pausa animação se modal aberto
+      if (showStopModal && !pulandoParada) return;
+
+      // Avanço do carro
+      const currentSpeedKms =
+        speedMode === "auto" ? realSpeedNow / 3600 : speed / 3600;
       distanceRef.current += currentSpeedKms * delta;
 
       if (distanceRef.current > totalDistance) {
@@ -88,9 +167,17 @@ const MapView = () => {
         return;
       }
 
-      const current = along(route, distanceRef.current, { units: "kilometers" });
-      const prev = along(route, Math.max(distanceRef.current - OFFSET, 0), { units: "kilometers" });
-      const next = along(route, Math.min(distanceRef.current + OFFSET, totalDistance), { units: "kilometers" });
+      const current = along(route, distanceRef.current, {
+        units: "kilometers",
+      });
+      const prev = along(route, Math.max(distanceRef.current - OFFSET, 0), {
+        units: "kilometers",
+      });
+      const next = along(
+        route,
+        Math.min(distanceRef.current + OFFSET, totalDistance),
+        { units: "kilometers" }
+      );
 
       const rawAngle = bearing(
         turfPoint(prev.geometry.coordinates),
@@ -101,19 +188,13 @@ const MapView = () => {
 
       const [lng, lat] = current.geometry.coordinates;
 
-      const closestIndex = Math.round(
-        (distanceRef.current / totalDistance) * (gpsPoints.length - 1)
-      );
-      const realPoint = gpsData.courses[selectedCourse]?.gps[closestIndex];
-      const realSpeed = realPoint?.speed ?? 0;
-      setRealSpeed(realSpeed);
-
       setPosition({
         lat,
         lng,
-        vel: speed,
+        vel: speedMode === "auto" ? realSpeedNow : speed,
         ang: angleRef.current,
         time: Date.now(),
+        idx: closestIndex,
       });
 
       animationRef.current = requestAnimationFrame(animate);
@@ -123,17 +204,53 @@ const MapView = () => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isPlaying,
     speed,
+    speedMode,
     selectedCourse,
     setPosition,
     setRealSpeed,
     route,
     totalDistance,
     gpsPoints,
+    showStopModal,
+    paradoDesde,
+    rodandoDesde,
   ]);
+
+  // Função para pular parada
+  function handleSkipStop() {
+    let closestIndex = position.idx ?? 0;
+    let idx = closestIndex;
+    while (idx < gpsPoints.length && gpsPoints[idx]?.speed === 0) {
+      idx++;
+    }
+    if (idx < gpsPoints.length) {
+      const p = gpsPoints[idx];
+      distanceRef.current = (idx / (gpsPoints.length - 1)) * totalDistance;
+      setPosition({
+        lat: p.lat,
+        lng: p.lng,
+        vel: p.speed,
+        ang: p.direction,
+        time: Date.now(),
+        idx,
+      });
+      setShowStopModal(false);
+      setParadoDesde(null);
+      setRodandoDesde(Date.now());
+    }
+  }
+
+  // Tempo parado/rodando em segundos
+  const tempoParado = paradoDesde
+    ? Math.floor((Date.now() - paradoDesde) / 1000)
+    : 0;
+  const tempoRodando = rodandoDesde
+    ? Math.floor((Date.now() - rodandoDesde) / 1000)
+    : 0;
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -155,18 +272,36 @@ const MapView = () => {
             paint={{ "line-color": "#3b9ddd", "line-width": 4 }}
           />
         </Source>
-        <Marker
-          longitude={position.lng}
-          latitude={position.lat}
-        >
-          <Car position={[position.lng, position.lat]} direction={position.ang} />
+        <Marker longitude={position.lng} latitude={position.lat}>
+          <Car
+            position={[position.lng, position.lat]}
+            direction={position.ang}
+          />
         </Marker>
         <RouteMarkers coordinates={coordinates} />
       </Map>
-      <Controls />
-      <TrackSelector />
-      <LanguageSelector />
-      <HUD />
+      <DashboardPanel
+        playing={isPlaying}
+        onPlayPause={togglePlay}
+        onReset={reset}
+        speed={speed}
+        setSpeed={setSpeed}
+        speedMode={speedMode}
+        setSpeedMode={setSpeedMode}
+        realSpeed={realSpeed}
+        onRouteChange={handleTrocarRota}
+        currentRoute={`(${selectedCourse + 1}/${gpsData.courses.length})`}
+        onLanguageChange={changeLanguage}
+        language={currentLanguage}
+      />
+      <HUD tempoParado={tempoParado} tempoRodando={tempoRodando} />
+      <ModalStop
+        open={showStopModal}
+        onSkip={handleSkipStop}
+        tempoParado={stoppedElapsed}
+        tempoTotalParada={stopDuration}
+        onFastForward={setStoppedElapsedManual}
+      />
     </div>
   );
 };
