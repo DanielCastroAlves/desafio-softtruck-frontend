@@ -1,0 +1,24 @@
+.container {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  padding: 6px 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 20;
+}
+
+.button {
+  background: transparent;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.active {
+  background-color: #3b9ddd;
+}
