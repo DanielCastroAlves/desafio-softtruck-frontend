@@ -6,18 +6,19 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { MAPBOX_TOKEN } from "../mapboxConfig";
 import gpsData from "../../data/frontend_data_gps.json";
 import Car from "../components/Car";
-import HUD from "../components/HUD/HUD";
 import TrackSelector from "../components/TrackSelector/TrackSelector";
-import { useGps } from "../../contexts/GpsContext";
+import LanguageSelector from "../components/LanguageSelector/LanguageSelector";
 
+import { useGps } from "../../contexts/GpsContext";
 import { lineString, point as turfPoint } from "@turf/helpers";
 import along from "@turf/along";
 import bearing from "@turf/bearing";
 import length from "@turf/length";
 import type { Feature, LineString } from "geojson";
+import HUD from "../components/HUD/HUD";
 
 const OFFSET = 0.0001;
-const speed = 80;
+const speed = 80; // km/h fictício
 
 const MapView = () => {
   const { selectedCourse } = useGps();
@@ -38,7 +39,6 @@ const MapView = () => {
   );
   const [angle, setAngle] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [currentSpeed, setCurrentSpeed] = useState(0);
 
   const distanceRef = useRef(0);
   const animationRef = useRef<number | null>(null);
@@ -65,7 +65,6 @@ const MapView = () => {
 
       const speedKms = speed / 3600;
       distanceRef.current += speedKms * delta;
-      setCurrentSpeed(speedKms * 3600);
 
       if (distanceRef.current > totalDistance) {
         cancelAnimationFrame(animationRef.current!);
@@ -105,6 +104,7 @@ const MapView = () => {
 
   return (
     <>
+      <LanguageSelector />
       <TrackSelector />
       <Map
         {...viewState}
@@ -124,8 +124,7 @@ const MapView = () => {
 
         <Car position={currentPos} direction={angle} />
       </Map>
-
-      <HUD speed={currentSpeed} angle={angle} time={elapsedTime} />
+      <HUD speed={speed} angle={angle} time={elapsedTime} />
     </>
   );
 };
