@@ -1,71 +1,87 @@
-import { useEffect, useRef, useState } from "react";
-import Map, { Source, Layer } from "react-map-gl/mapbox";
-import type { ViewStateChangeEvent } from "react-map-gl/mapbox";
+import { useEffect, useRef } from "react";
+import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
-
-import { MAPBOX_TOKEN } from "../mapboxConfig";
 import gpsData from "../../data/frontend_data_gps.json";
-import Car from "../components/Car/Car";
-import TrackSelector from "../components/TrackSelector/TrackSelector";
-import LanguageSelector from "../components/LanguageSelector/LanguageSelector";
-
 import { useGps } from "../../contexts/GpsContext";
 import { lineString, point as turfPoint } from "@turf/helpers";
 import along from "@turf/along";
 import bearing from "@turf/bearing";
 import length from "@turf/length";
-import type { Feature, LineString } from "geojson";
-import HUD from "../components/HUD/HUD";
+import Car from "../components/Car/Car";
 import RouteMarkers from "../components/RouteMarkers/RouteMarkers";
+import TrackSelector from "../components/TrackSelector/TrackSelector";
+import LanguageSelector from "../components/LanguageSelector/LanguageSelector";
+import HUD from "../components/HUD/HUD";
+import Controls from "../components/Controls/Controls";
+import type { Feature, LineString } from "geojson";
+import { MAPBOX_TOKEN } from "../mapboxConfig";
 
 const OFFSET = 0.0001;
-const speed = 80; // km/h fictício
 
 const MapView = () => {
-  const { selectedCourse } = useGps();
-  const gpsPoints = gpsData.courses?.[selectedCourse]?.gps ?? [];
-const coordinates = gpsPoints.map((p: any) => [p.longitude, p.latitude] as [number, number]);
-
-  const route = lineString(coordinates);
-  const totalDistance = length(route, { units: "kilometers" });
-
-  const [viewState, setViewState] = useState({
-    latitude: coordinates[0]?.[1] ?? 0,
-    longitude: coordinates[0]?.[0] ?? 0,
-    zoom: 15,
-  });
-
-  const [currentPos, setCurrentPos] = useState<[number, number]>(
-    (coordinates[0] ?? [0, 0]) as [number, number]
-  );
-  const [angle, setAngle] = useState(0);
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const {
+    position,
+    setPosition,
+    isPlaying,
+    speed,
+    selectedCourse,
+    resetSignal,
+    setRealSpeed,
+  } = useGps();
 
   const distanceRef = useRef(0);
   const animationRef = useRef<number | null>(null);
   const prevTimeRef = useRef<number | null>(null);
   const angleRef = useRef(0);
 
+  const gpsPoints = gpsData.courses[selectedCourse]?.gps.map((point: any) => ({
+    lat: point.latitude,
+    lng: point.longitude,
+  })) ?? [];
+
+  const coordinates: [number, number][] = gpsPoints.map((point) => [point.lng, point.lat]);
+  const route = lineString(coordinates);
+  const totalDistance = length(route, { units: "kilometers" });
+
   const routeGeoJSON: Feature<LineString> = {
     type: "Feature",
-    geometry: route.geometry,
+    geometry: {
+      type: "LineString",
+      coordinates: coordinates,
+    },
     properties: {},
   };
 
+  // Ajuste: Garante posição inicial (ou após reset)
   useEffect(() => {
     distanceRef.current = 0;
     prevTimeRef.current = null;
-    setElapsedTime(0);
+    angleRef.current = 0;
+
+    // Seta o carro no primeiro ponto mesmo se não estiver rodando
+    if (coordinates.length > 0) {
+      setPosition({
+        lat: coordinates[0][1],
+        lng: coordinates[0][0],
+        vel: 0,
+        ang: 0,
+        time: Date.now(),
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourse, resetSignal]); // resetSignal = clique no reset
+
+  // Lógica da animação do carro
+  useEffect(() => {
+    if (!isPlaying) return; // só anima se está tocando/play
 
     const animate = (timestamp: number) => {
       if (!prevTimeRef.current) prevTimeRef.current = timestamp;
       const delta = (timestamp - prevTimeRef.current) / 1000;
       prevTimeRef.current = timestamp;
 
-      setElapsedTime((prev) => prev + delta);
-
-      const speedKms = speed / 3600;
-      distanceRef.current += speedKms * delta;
+      const currentSpeedKms = speed / 3600;
+      distanceRef.current += currentSpeedKms * delta;
 
       if (distanceRef.current > totalDistance) {
         cancelAnimationFrame(animationRef.current!);
@@ -73,26 +89,32 @@ const coordinates = gpsPoints.map((p: any) => [p.longitude, p.latitude] as [numb
       }
 
       const current = along(route, distanceRef.current, { units: "kilometers" });
-      const prev = along(route, Math.max(distanceRef.current - OFFSET, 0), {
-        units: "kilometers",
-      });
-      const next = along(route, Math.min(distanceRef.current + OFFSET, totalDistance), {
-        units: "kilometers",
-      });
+      const prev = along(route, Math.max(distanceRef.current - OFFSET, 0), { units: "kilometers" });
+      const next = along(route, Math.min(distanceRef.current + OFFSET, totalDistance), { units: "kilometers" });
 
       const rawAngle = bearing(
         turfPoint(prev.geometry.coordinates),
         turfPoint(next.geometry.coordinates)
       );
+      const correctedAngle = ((rawAngle % 360) + 360) % 360;
+      angleRef.current = angleRef.current * 0.8 + correctedAngle * 0.2;
 
-      const spriteAngle = (rawAngle + 360) % 360;
-      const deltaAngle = ((spriteAngle - angleRef.current + 540) % 360) - 180;
-      const smoothAngle = (angleRef.current + deltaAngle * 0.2 + 360) % 360;
+      const [lng, lat] = current.geometry.coordinates;
 
-      angleRef.current = smoothAngle;
+      const closestIndex = Math.round(
+        (distanceRef.current / totalDistance) * (gpsPoints.length - 1)
+      );
+      const realPoint = gpsData.courses[selectedCourse]?.gps[closestIndex];
+      const realSpeed = realPoint?.speed ?? 0;
+      setRealSpeed(realSpeed);
 
-      setCurrentPos(current.geometry.coordinates as [number, number]);
-      setAngle(smoothAngle);
+      setPosition({
+        lat,
+        lng,
+        vel: speed,
+        ang: angleRef.current,
+        time: Date.now(),
+      });
 
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -101,18 +123,29 @@ const coordinates = gpsPoints.map((p: any) => [p.longitude, p.latitude] as [numb
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [selectedCourse]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isPlaying,
+    speed,
+    selectedCourse,
+    setPosition,
+    setRealSpeed,
+    route,
+    totalDistance,
+    gpsPoints,
+  ]);
 
   return (
-    <>
-      <LanguageSelector />
-      <TrackSelector />
+    <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
       <Map
-        {...viewState}
-        onMove={(e: ViewStateChangeEvent) => setViewState(e.viewState)}
-        style={{ width: "100%", height: "100vh" }}
+        initialViewState={{
+          latitude: coordinates[0]?.[1] ?? 0,
+          longitude: coordinates[0]?.[0] ?? 0,
+          zoom: 15,
+        }}
         mapStyle="mapbox://styles/mapbox/streets-v11"
         mapboxAccessToken={MAPBOX_TOKEN}
+        style={{ width: "100vw", height: "100vh" }}
       >
         <Source id="route" type="geojson" data={routeGeoJSON}>
           <Layer
@@ -122,12 +155,19 @@ const coordinates = gpsPoints.map((p: any) => [p.longitude, p.latitude] as [numb
             paint={{ "line-color": "#3b9ddd", "line-width": 4 }}
           />
         </Source>
-
-        <Car position={currentPos} direction={angle} />
+        <Marker
+          longitude={position.lng}
+          latitude={position.lat}
+        >
+          <Car position={[position.lng, position.lat]} direction={position.ang} />
+        </Marker>
         <RouteMarkers coordinates={coordinates} />
       </Map>
-      <HUD speed={speed} angle={angle} time={elapsedTime} />
-    </>
+      <Controls />
+      <TrackSelector />
+      <LanguageSelector />
+      <HUD />
+    </div>
   );
 };
 

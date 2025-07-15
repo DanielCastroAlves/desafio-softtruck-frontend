@@ -1,12 +1,10 @@
-import MapView from "./features/MapView/MapView";
 import { GpsProvider } from "./contexts/GpsContext";
+import MapView from "./features/MapView/MapView";
 
-function App() {
-  return (
-    <GpsProvider>
-      <MapView />
-    </GpsProvider>
-  );
-}
+const App: React.FC = () => (
+  <GpsProvider>
+    <MapView />
+  </GpsProvider>
+);
 
 export default App;
