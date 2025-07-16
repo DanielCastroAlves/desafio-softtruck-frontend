@@ -1,0 +1,94 @@
+// src/features/MapView/MapView.module.scss
+
+.mapRoot {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  background: #eaf0f7;
+
+  // Opcional: esconde overflow se for abrir modais
+  overflow: hidden;
+}
+
+.map {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0; // caso queira deixar arredondado em outras telas, ajuste aqui
+  box-shadow: 0 0 18px #0002;
+}
+
+// Para garantir que overlays (Dashboard, HUD, Modal) fiquem no topo
+.dashboardOverlay {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 20;
+  width: 100%;
+}
+
+.hudOverlay {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  z-index: 15;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.46);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Exemplo para botões flutuantes no mapa
+.floatingButton {
+  position: absolute;
+  right: 24px;
+  top: 24px;
+  z-index: 22;
+  background: #1976d2;
+  color: #fff;
+  border-radius: 50%;
+  padding: 12px;
+  box-shadow: 0 4px 14px #0004;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  &:hover {
+    background: #1565c0;
+  }
+}
+
+// MapView.module.scss
+.mapRoot {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+
+// Responsivo (mobile)
+@media (max-width: 600px) {
+  .mapRoot,
+  .map {
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+  .hudOverlay {
+    right: 4px;
+    top: 4px;
+  }
+  .dashboardOverlay {
+    left: 0;
+    right: 0;
+    width: 100vw;
+    min-width: unset;
+  }
+}
