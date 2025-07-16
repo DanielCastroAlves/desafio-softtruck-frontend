@@ -1,5 +1,5 @@
 // src/features/MapView/MapView.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import gpsData from "../../data/frontend_data_gps_enriched_with_address.json";
@@ -14,7 +14,6 @@ import type { Feature, LineString } from "geojson";
 import DashboardPanel from "../components/DashboardPanel/DashboardPanel";
 import { useTranslation } from "react-i18next";
 import HUD from "../components/HUD/HUD";
-import ModalStop from "../components/ModalStop/ModalStop";
 
 const OFFSET = 0.0001;
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
@@ -35,18 +34,10 @@ const MapView = () => {
     setSelectedCourse,
     resetSignal,
     setRealSpeed,
-    showStopModal,
-    setShowStopModal,
-    stopDuration,
-    stoppedElapsed,
-    setStoppedElapsedManual,
   } = useGps();
 
   const { i18n } = useTranslation();
   const currentLanguage = i18n.language;
-
-  const [paradoDesde, setParadoDesde] = useState<number | null>(null);
-  const [rodandoDesde, setRodandoDesde] = useState<number | null>(null);
 
   function handleTrocarRota() {
     setSelectedCourse((prev) => (prev + 1) % gpsData.courses.length);
@@ -85,8 +76,6 @@ const MapView = () => {
     distanceRef.current = 0;
     prevTimeRef.current = null;
     angleRef.current = 0;
-    setParadoDesde(null);
-    setRodandoDesde(Date.now());
     if (coordinates.length > 0) {
       setPosition({
         lat: coordinates[0][1],
@@ -102,8 +91,6 @@ const MapView = () => {
   useEffect(() => {
     if (!isPlaying) return;
 
-    let pulandoParada = false;
-
     const animate = (timestamp: number) => {
       if (!prevTimeRef.current) prevTimeRef.current = timestamp;
       const delta = (timestamp - prevTimeRef.current) / 1000;
@@ -117,30 +104,6 @@ const MapView = () => {
       let realSpeedNow = realPoint?.speed ?? 0;
 
       setRealSpeed(realSpeedNow);
-
-      const isStopped = realSpeedNow === 0;
-      if (isStopped) {
-        if (paradoDesde == null) setParadoDesde(Date.now());
-        if (rodandoDesde != null) setRodandoDesde(null);
-      } else {
-        if (rodandoDesde == null) setRodandoDesde(Date.now());
-        if (paradoDesde != null) setParadoDesde(null);
-      }
-
-      if (isStopped && !showStopModal && !pulandoParada) {
-        let idx = closestIndex;
-        while (idx < gpsPoints.length && gpsPoints[idx]?.speed === 0) idx++;
-        let waitSeconds = 0;
-        if (idx < gpsPoints.length) {
-          waitSeconds = gpsPoints[idx].time - gpsPoints[closestIndex].time;
-        }
-        if (waitSeconds >= 10) {
-          setShowStopModal(true);
-          return;
-        }
-      }
-
-      if (showStopModal && !pulandoParada) return;
 
       const currentSpeedKms =
         speedMode === "auto" ? realSpeedNow / 3600 : speed / 3600;
@@ -198,38 +161,7 @@ const MapView = () => {
     route,
     totalDistance,
     gpsPoints,
-    showStopModal,
-    paradoDesde,
-    rodandoDesde,
   ]);
-
-  function handleSkipStop() {
-    let closestIndex = position.idx ?? 0;
-    let idx = closestIndex;
-    while (idx < gpsPoints.length && gpsPoints[idx]?.speed === 0) idx++;
-    if (idx < gpsPoints.length) {
-      const p = gpsPoints[idx];
-      distanceRef.current = (idx / (gpsPoints.length - 1)) * totalDistance;
-      setPosition({
-        lat: p.lat,
-        lng: p.lng,
-        vel: p.speed,
-        ang: p.direction,
-        time: Date.now(),
-        idx,
-      });
-      setShowStopModal(false);
-      setParadoDesde(null);
-      setRodandoDesde(Date.now());
-    }
-  }
-
-  const tempoParado = paradoDesde
-    ? Math.floor((Date.now() - paradoDesde) / 1000)
-    : 0;
-  const tempoRodando = rodandoDesde
-    ? Math.floor((Date.now() - rodandoDesde) / 1000)
-    : 0;
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -272,14 +204,7 @@ const MapView = () => {
         onLanguageChange={changeLanguage}
         language={currentLanguage}
       />
-      <HUD tempoParado={tempoParado} tempoRodando={tempoRodando} />
-      <ModalStop
-        open={showStopModal}
-        onSkip={handleSkipStop}
-        tempoParado={stoppedElapsed}
-        tempoTotalParada={stopDuration}
-        onFastForward={setStoppedElapsedManual}
-      />
+      <HUD tempoParado={0} tempoRodando={0} />
     </div>
   );
 };
