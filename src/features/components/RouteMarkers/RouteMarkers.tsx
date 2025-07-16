@@ -1,33 +1,24 @@
-// src/features/components/RouteMarkers/RouteMarkers.tsx
+import React from "react";
 import { Marker } from "react-map-gl/mapbox";
+import styles from "./RouteMarkers.module.scss";
 
-type Props = {
+type RouteMarkersProps = {
   coordinates: [number, number][];
 };
 
-const RouteMarkers = ({ coordinates }: Props) => {
-  return (
-    <>
-      {coordinates.map(([lng, lat], index) => (
-        <Marker
-          key={`marker-${index}`}
-          longitude={lng}
-          latitude={lat}
-          anchor="center"
-        >
-          <div
-            style={{
-              width: "6px",
-              height: "6px",
-              borderRadius: "50%",
-              backgroundColor: "red",
-              opacity: 0.7,
-            }}
-          />
-        </Marker>
-      ))}
-    </>
-  );
-};
+const RouteMarkers: React.FC<RouteMarkersProps> = ({ coordinates }) => (
+  <>
+    {coordinates.map(([longitude, latitude], index) => (
+      <Marker
+        key={`marker-${index}`}
+        longitude={longitude}
+        latitude={latitude}
+        anchor="center"
+      >
+        <div className={styles.marker} />
+      </Marker>
+    ))}
+  </>
+);
 
 export default RouteMarkers;
