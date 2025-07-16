@@ -24,16 +24,12 @@ type GpsContextType = {
   reset: () => void;
   realSpeed: number;
   setRealSpeed: (val: number) => void;
-
-  // Parada
   isStopped: boolean;
   stoppedAt: number | null;
   stoppedElapsed: number;
   setStoppedElapsedManual: (val: number) => void;
   runningElapsed: number;
   stopHistory: StopInfo[];
-
-  // Modal de parada
   showStopModal: boolean;
   setShowStopModal: (val: boolean) => void;
   stopDuration: number;
@@ -54,11 +50,10 @@ export const GpsProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(80);
   const [speedMode, setSpeedMode] = useState<SpeedMode>("auto");
-  const [selectedCourse, setSelectedCourse] = useState<number>(0);
+  const [selectedCourse, setSelectedCourse] = useState(0);
   const [resetSignal, setResetSignal] = useState(0);
   const [realSpeed, setRealSpeed] = useState(0);
 
-  // ---- Novos estados para parada ----
   const [isStopped, setIsStopped] = useState(false);
   const [stoppedAt, setStoppedAt] = useState<number | null>(null);
   const [stoppedElapsed, setStoppedElapsed] = useState(0);
@@ -67,46 +62,32 @@ export const GpsProvider = ({ children }: { children: ReactNode }) => {
   const [showStopModal, setShowStopModal] = useState(false);
   const [stopDuration, setStopDuration] = useState(0);
 
-  // Setter manual para o slider do modal
   const setStoppedElapsedManual = (val: number) => setStoppedElapsed(val);
 
-  // Atualização de cronômetros
   useEffect(() => {
-    let interval: any = null;
+let interval: number | null = null;
 
     if (isStopped && showStopModal) {
-      interval = setInterval(() => {
-        setStoppedElapsed((prev) => prev + 1);
-      }, 1000);
+      interval = setInterval(() => setStoppedElapsed(prev => prev + 1), 1000);
     } else if (isPlaying && !isStopped) {
-      interval = setInterval(() => {
-        setRunningElapsed((prev) => prev + 1);
-      }, 1000);
+      interval = setInterval(() => setRunningElapsed(prev => prev + 1), 1000);
     }
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => { if (interval) clearInterval(interval); };
   }, [isPlaying, isStopped, showStopModal]);
 
-  // Identifica se é parada prolongada (ex: > 1 min parado)
   useEffect(() => {
     if (position.vel === 0) {
-      // Parado
       if (!isStopped) {
         setIsStopped(true);
         setStoppedAt(position.time);
         setStoppedElapsed(0);
       }
-      // Modal de parada prolongada
       if (position.idx !== undefined) {
         const points = gpsData.courses[selectedCourse]?.gps ?? [];
         let idx = position.idx;
         let nextMoveIdx = idx;
-        while (
-          nextMoveIdx < points.length &&
-          points[nextMoveIdx]?.speed === 0
-        ) {
+        while (nextMoveIdx < points.length && points[nextMoveIdx]?.speed === 0) {
           nextMoveIdx++;
         }
         if (
@@ -114,20 +95,18 @@ export const GpsProvider = ({ children }: { children: ReactNode }) => {
           !showStopModal &&
           points[nextMoveIdx]
         ) {
-          const stopTime =
-            points[nextMoveIdx].acquisition_time_unix -
-            points[idx].acquisition_time_unix;
-          if (stopTime >= 60) {
+          const waitSeconds =
+            points[nextMoveIdx].acquisition_time_unix - points[idx].acquisition_time_unix;
+          if (waitSeconds >= 60) {
             setShowStopModal(true);
-            setStopDuration(stopTime);
+            setStopDuration(waitSeconds);
           }
         }
       }
     } else {
-      // Em movimento
       if (isStopped && stoppedAt !== null) {
         setIsStopped(false);
-        setStopHistory((history) => [
+        setStopHistory(history => [
           ...history,
           {
             startedAt: stoppedAt,
@@ -142,13 +121,11 @@ export const GpsProvider = ({ children }: { children: ReactNode }) => {
         setShowStopModal(false);
       }
     }
-    // eslint-disable-next-line
-  }, [position.vel, position.time, position.idx]);
+  }, [position.vel, position.time, position.idx, isStopped, stoppedAt, selectedCourse, showStopModal]);
 
-  // Reset ao reiniciar simulação
   const reset = useCallback(() => {
     setIsPlaying(false);
-    setResetSignal((r) => r + 1);
+    setResetSignal(r => r + 1);
     setIsStopped(false);
     setStoppedAt(null);
     setStoppedElapsed(0);
@@ -158,16 +135,12 @@ export const GpsProvider = ({ children }: { children: ReactNode }) => {
     setStopDuration(0);
   }, []);
 
-  // Pular para próximo ponto em movimento (> 0)
   const skipStop = useCallback(() => {
     const points = gpsData.courses[selectedCourse]?.gps ?? [];
     if (position.idx !== undefined) {
       let idx = position.idx;
       let nextMoveIdx = idx;
-      while (
-        nextMoveIdx < points.length &&
-        points[nextMoveIdx]?.speed === 0
-      ) {
+      while (nextMoveIdx < points.length && points[nextMoveIdx]?.speed === 0) {
         nextMoveIdx++;
       }
       if (points[nextMoveIdx]) {
@@ -185,7 +158,7 @@ export const GpsProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [selectedCourse, position.idx, setPosition]);
 
-  const togglePlay = useCallback(() => setIsPlaying((p) => !p), []);
+  const togglePlay = useCallback(() => setIsPlaying(p => !p), []);
   const customSetSpeedMode = (mode: SpeedMode) => setSpeedMode(mode);
 
   return (
@@ -205,16 +178,12 @@ export const GpsProvider = ({ children }: { children: ReactNode }) => {
         reset,
         realSpeed,
         setRealSpeed,
-
-        // Parada
         isStopped,
         stoppedAt,
         stoppedElapsed,
         setStoppedElapsedManual,
         runningElapsed,
         stopHistory,
-
-        // Modal de parada
         showStopModal,
         setShowStopModal,
         stopDuration,
