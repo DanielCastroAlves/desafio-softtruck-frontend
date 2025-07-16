@@ -1,3 +1,4 @@
+// src/features/MapView/MapView.tsx
 import { useEffect, useRef, useState } from "react";
 import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -44,13 +45,13 @@ const MapView = () => {
   const { i18n } = useTranslation();
   const currentLanguage = i18n.language;
 
-  // Contadores de tempo
   const [paradoDesde, setParadoDesde] = useState<number | null>(null);
   const [rodandoDesde, setRodandoDesde] = useState<number | null>(null);
 
   function handleTrocarRota() {
     setSelectedCourse((prev) => (prev + 1) % gpsData.courses.length);
   }
+
   function changeLanguage(lang: string) {
     i18n.changeLanguage(lang);
   }
@@ -70,23 +71,16 @@ const MapView = () => {
       direction: point.direction,
     })) ?? [];
 
-  const coordinates: [number, number][] = gpsPoints.map((point) => [
-    point.lng,
-    point.lat,
-  ]);
+  const coordinates: [number, number][] = gpsPoints.map((p) => [p.lng, p.lat]);
   const route = lineString(coordinates);
   const totalDistance = length(route, { units: "kilometers" });
 
   const routeGeoJSON: Feature<LineString> = {
     type: "Feature",
-    geometry: {
-      type: "LineString",
-      coordinates: coordinates,
-    },
+    geometry: { type: "LineString", coordinates },
     properties: {},
   };
 
-  // Reset tempos ao trocar rota/resetar
   useEffect(() => {
     distanceRef.current = 0;
     prevTimeRef.current = null;
@@ -103,10 +97,8 @@ const MapView = () => {
         idx: 0,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCourse, resetSignal]);
 
-  // Controle da animação do carro
   useEffect(() => {
     if (!isPlaying) return;
 
@@ -121,12 +113,11 @@ const MapView = () => {
         (distanceRef.current / totalDistance) * (gpsPoints.length - 1)
       );
       closestIndex = Math.max(0, Math.min(closestIndex, gpsPoints.length - 1));
-      let realPoint = gpsData.courses[selectedCourse]?.gps[closestIndex];
+      let realPoint = gpsPoints[closestIndex];
       let realSpeedNow = realPoint?.speed ?? 0;
 
       setRealSpeed(realSpeedNow);
 
-      // Está parado?
       const isStopped = realSpeedNow === 0;
       if (isStopped) {
         if (paradoDesde == null) setParadoDesde(Date.now());
@@ -136,28 +127,21 @@ const MapView = () => {
         if (paradoDesde != null) setParadoDesde(null);
       }
 
-      // Modal de parada longa
       if (isStopped && !showStopModal && !pulandoParada) {
-        // Busca quanto tempo ficará parado
         let idx = closestIndex;
-        while (idx < gpsPoints.length && gpsPoints[idx]?.speed === 0) {
-          idx++;
-        }
+        while (idx < gpsPoints.length && gpsPoints[idx]?.speed === 0) idx++;
         let waitSeconds = 0;
         if (idx < gpsPoints.length) {
           waitSeconds = gpsPoints[idx].time - gpsPoints[closestIndex].time;
         }
         if (waitSeconds >= 10) {
-          // Troque para 60 para só alertar paradas longas!
           setShowStopModal(true);
-          return; // Pausa animação
+          return;
         }
       }
 
-      // Pausa animação se modal aberto
       if (showStopModal && !pulandoParada) return;
 
-      // Avanço do carro
       const currentSpeedKms =
         speedMode === "auto" ? realSpeedNow / 3600 : speed / 3600;
       distanceRef.current += currentSpeedKms * delta;
@@ -204,7 +188,6 @@ const MapView = () => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isPlaying,
     speed,
@@ -220,13 +203,10 @@ const MapView = () => {
     rodandoDesde,
   ]);
 
-  // Função para pular parada
   function handleSkipStop() {
     let closestIndex = position.idx ?? 0;
     let idx = closestIndex;
-    while (idx < gpsPoints.length && gpsPoints[idx]?.speed === 0) {
-      idx++;
-    }
+    while (idx < gpsPoints.length && gpsPoints[idx]?.speed === 0) idx++;
     if (idx < gpsPoints.length) {
       const p = gpsPoints[idx];
       distanceRef.current = (idx / (gpsPoints.length - 1)) * totalDistance;
@@ -244,7 +224,6 @@ const MapView = () => {
     }
   }
 
-  // Tempo parado/rodando em segundos
   const tempoParado = paradoDesde
     ? Math.floor((Date.now() - paradoDesde) / 1000)
     : 0;
@@ -262,7 +241,6 @@ const MapView = () => {
         }}
         mapStyle="mapbox://styles/mapbox/streets-v11"
         mapboxAccessToken={MAPBOX_TOKEN}
-        style={{ width: "100vw", height: "100vh" }}
       >
         <Source id="route" type="geojson" data={routeGeoJSON}>
           <Layer
