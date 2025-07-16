@@ -1,5 +1,5 @@
 import { Marker } from "react-map-gl/mapbox";
-import sprite from "../../../assets/cars.png";
+import spriteSheet from "../../../assets/cars.png";
 import styles from "./Car.module.scss";
 
 type CarProps = {
@@ -7,24 +7,28 @@ type CarProps = {
   direction: number;
 };
 
-const Car = ({ position, direction }: CarProps) => {
-  const totalFrames = 120;
-  const frameWidth = 40;
-  const frameHeight = 40;
+const CAR_FRAME_WIDTH = 40;
+const CAR_FRAME_HEIGHT = 40;
+const CAR_TOTAL_FRAMES = 120;
+const ANGLE_OFFSET = 30;
 
-  const adjustedAngle = (direction + 30) % 360;
-  const frameIndex = Math.round(adjustedAngle / (360 / totalFrames)) % totalFrames;
+const Car = ({ position, direction }: CarProps) => {
+  const adjustedAngle = (direction + ANGLE_OFFSET) % 360;
+  const frameIndex =
+    Math.round(adjustedAngle / (360 / CAR_TOTAL_FRAMES)) % CAR_TOTAL_FRAMES;
 
   return (
     <Marker longitude={position[0]} latitude={position[1]} anchor="center">
       <div
         className={styles.car}
         style={{
-          width: `${frameWidth}px`,
-          height: `${frameHeight}px`,
-          backgroundImage: `url(${sprite})`,
-          backgroundPosition: `-${frameIndex * frameWidth}px 0px`,
-          backgroundSize: `${frameWidth * totalFrames}px ${frameHeight}px`,
+          width: `${CAR_FRAME_WIDTH}px`,
+          height: `${CAR_FRAME_HEIGHT}px`,
+          backgroundImage: `url(${spriteSheet})`,
+          backgroundPosition: `-${frameIndex * CAR_FRAME_WIDTH}px 0px`,
+          backgroundSize: `${
+            CAR_FRAME_WIDTH * CAR_TOTAL_FRAMES
+          }px ${CAR_FRAME_HEIGHT}px`,
         }}
       />
     </Marker>
