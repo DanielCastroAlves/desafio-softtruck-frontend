@@ -1,117 +1,125 @@
 import React from "react";
+
 import { useTranslation } from "react-i18next";
-import { useGps } from "../../../contexts/GpsContext";
-import gpsData from "../../../data/frontend_data_gps_enriched_with_address.json";
 import { PieChart, Pie, Cell } from "recharts";
+
+import { useGps } from "../../../contexts/GpsContext";
+
+import gpsData from "../../../data/frontend_data_gps_enriched_with_address.json";
+
 import type { HUDProps } from "../../../types/hud";
 
-function formatElapsed(s: number) {
-  if (!Number.isFinite(s) || s < 0) return "0:00";
-  const min = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
+import styles from "./HUD.module.scss";
+
+const MAX_SPEED_KMH = 200;
+const CHART_SEGMENTS = [
+  { name: "Baixa", value: MAX_SPEED_KMH * 0.4, color: "#4caf50" },
+  { name: "Média", value: MAX_SPEED_KMH * 0.4, color: "#ffc107" },
+  { name: "Alta", value: MAX_SPEED_KMH * 0.2, color: "#f44336" },
+];
+const NEEDLE_RADIUS = 8;
+const CHART_CENTER_X = 100;
+const CHART_CENTER_Y = 110;
+const CHART_INNER_RADIUS = 58;
+const CHART_OUTER_RADIUS = 95;
+
+function formatElapsed(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const min = Math.floor(seconds / 60);
+  const sec = Math.floor(seconds % 60);
   return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
-const MAX_SPEED = 200;
-const chartData = [
-  { name: "Baixa", value: MAX_SPEED * 0.4, color: "#4caf50" },
-  { name: "Média", value: MAX_SPEED * 0.4, color: "#ffc107" },
-  { name: "Alta", value: MAX_SPEED * 0.2, color: "#f44336" },
-];
-
-const RADIAN = Math.PI / 180;
-
-type NeedleProps = { value: number; data: any[]; cx: number; cy: number; iR: number; oR: number; color: string; };
-
-const needle = ({ value, data, cx, cy, iR, oR, color }: NeedleProps) => {
-  const total = data.reduce((sum, entry) => sum + entry.value, 0);
-  const ang = 180.0 * (1 - value / total);
-  const length = (iR + 2 * oR) / 3;
-  const sin = Math.sin(-RADIAN * ang);
-  const cos = Math.cos(-RADIAN * ang);
-  const r = 8;
-  const x0 = cx;
-  const y0 = cy;
-  const xba = x0 + r * sin;
-  const yba = y0 - r * cos;
-  const xbb = x0 - r * sin;
-  const ybb = y0 + r * cos;
-  const xp = x0 + length * cos;
-  const yp = y0 + length * sin;
-  return [
-    <circle key="needle-circle" cx={x0} cy={y0} r={r} fill={color} stroke="none" />,
-    <path key="needle-path" d={`M${xba} ${yba}L${xbb} ${ybb} L${xp} ${yp} L${xba} ${yba}`} fill={color} />,
-  ];
+type NeedleProps = {
+  value: number;
+  data: { value: number }[];
+  centerX: number;
+  centerY: number;
+  innerRadius: number;
+  outerRadius: number;
+  color: string;
 };
+
+function renderNeedle({
+  value,
+  data,
+  centerX,
+  centerY,
+  innerRadius,
+  outerRadius,
+  color,
+}: NeedleProps) {
+  const RADIAN = Math.PI / 180;
+  const total = data.reduce((sum, entry) => sum + entry.value, 0);
+  const angle = 180 * (1 - value / total);
+  const length = (innerRadius + 2 * outerRadius) / 3;
+  const sin = Math.sin(-RADIAN * angle);
+  const cos = Math.cos(-RADIAN * angle);
+
+  const xBaseA = centerX + NEEDLE_RADIUS * sin;
+  const yBaseA = centerY - NEEDLE_RADIUS * cos;
+  const xBaseB = centerX - NEEDLE_RADIUS * sin;
+  const yBaseB = centerY + NEEDLE_RADIUS * cos;
+  const xTip = centerX + length * cos;
+  const yTip = centerY + length * sin;
+
+  return [
+    <circle
+      key="needle-circle"
+      cx={centerX}
+      cy={centerY}
+      r={NEEDLE_RADIUS}
+      fill={color}
+    />,
+    <path
+      key="needle-path"
+      d={`M${xBaseA} ${yBaseA}L${xBaseB} ${yBaseB} L${xTip} ${yTip} L${xBaseA} ${yBaseA}`}
+      fill={color}
+    />,
+  ];
+}
 
 const HUD: React.FC<HUDProps> = ({ tempoParado, tempoRodando }) => {
   const { t } = useTranslation();
   const { position, selectedCourse, isStopped } = useGps();
 
   const points = gpsData.courses[selectedCourse]?.gps ?? [];
-  const closestIdx = points.length > 0
-    ? points.reduce((acc, point, idx) => {
-        const d =
-          Math.abs(point.latitude - position.lat) +
-          Math.abs(point.longitude - position.lng);
-        return d < acc.dist ? { dist: d, idx } : acc;
-      }, { dist: Infinity, idx: 0 }).idx
-    : 0;
+  const closestIdx =
+    points.length > 0
+      ? points.reduce(
+          (acc, point, idx) => {
+            const dist =
+              Math.abs(point.latitude - position.lat) +
+              Math.abs(point.longitude - position.lng);
+            return dist < acc.dist ? { dist, idx } : acc;
+          },
+          { dist: Infinity, idx: 0 }
+        ).idx
+      : 0;
 
   const currentPoint = points[closestIdx] || {};
-  const speedValue = Math.max(0, Math.min(position.vel, MAX_SPEED));
-  const cx = 100, cy = 110, iR = 58, oR = 95;
-
-  // Status text fallback
+  const currentSpeed = Math.max(0, Math.min(position.vel, MAX_SPEED_KMH));
   const statusText = isStopped
     ? t("stopped", { defaultValue: "PARADO" })
     : t("moving", { defaultValue: "EM MOVIMENTO" });
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 14,
-        right: 14,
-        background: "rgba(0,0,0,0.76)",
-        borderRadius: 16,
-        padding: 12,
-        color: "#fff",
-        zIndex: 15,
-        boxShadow: "0 3px 18px #0004",
-        width: 230,
-        minHeight: 210,
-        textAlign: "center"
-      }}
-    >
-      {/* Status do veículo */}
-      <div style={{ marginBottom: 8, marginTop: 2 }}>
+    <div className={styles.hudContainer}>
+      <div className={styles.vehicleStatus}>
         <span
-          style={{
-            display: "inline-block",
-            padding: "3px 12px",
-            borderRadius: 999,
-            background: isStopped ? "#d32f2f" : "#388e3c",
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: 14,
-            boxShadow: "0 1px 4px #0007",
-            letterSpacing: 0.5,
-            minWidth: 80,
-            transition: "background 0.3s",
-          }}
+          className={`${styles.vehicleStatusLabel} ${
+            isStopped
+              ? styles.vehicleStatusLabelStopped
+              : styles.vehicleStatusLabelMoving
+          }`}
         >
           {statusText}
         </span>
-        <div style={{ marginTop: 6 }}>
-          <span style={{ fontSize: 13, color: "#ffd600", fontWeight: 500 }}>
-            Parado: {formatElapsed(tempoParado)}
-          </span>
+        <div className={styles.speedStopped}>
+          Parado: {formatElapsed(tempoParado)}
         </div>
-        <div>
-          <span style={{ fontSize: 13, color: "#aef59f", fontWeight: 500 }}>
-            Rodando: {formatElapsed(tempoRodando)}
-          </span>
+        <div className={styles.speedRunning}>
+          Rodando: {formatElapsed(tempoRodando)}
         </div>
       </div>
 
@@ -120,29 +128,29 @@ const HUD: React.FC<HUDProps> = ({ tempoParado, tempoRodando }) => {
           dataKey="value"
           startAngle={180}
           endAngle={0}
-          data={chartData}
-          cx={cx}
-          cy={cy}
-          innerRadius={iR}
-          outerRadius={oR}
+          data={CHART_SEGMENTS}
+          cx={CHART_CENTER_X}
+          cy={CHART_CENTER_Y}
+          innerRadius={CHART_INNER_RADIUS}
+          outerRadius={CHART_OUTER_RADIUS}
           stroke="none"
         >
-          {chartData.map((entry) => (
+          {CHART_SEGMENTS.map((entry) => (
             <Cell key={`cell-${entry.name}`} fill={entry.color} />
           ))}
         </Pie>
-        {needle({
-          value: speedValue,
-          data: chartData,
-          cx,
-          cy,
-          iR,
-          oR,
+        {renderNeedle({
+          value: currentSpeed,
+          data: CHART_SEGMENTS,
+          centerX: CHART_CENTER_X,
+          centerY: CHART_CENTER_Y,
+          innerRadius: CHART_INNER_RADIUS,
+          outerRadius: CHART_OUTER_RADIUS,
           color: "#f9e025",
         })}
         <text
-          x={cx}
-          y={cy + 12}
+          x={CHART_CENTER_X}
+          y={CHART_CENTER_Y + 12}
           textAnchor="middle"
           dominantBaseline="middle"
           style={{
@@ -152,11 +160,11 @@ const HUD: React.FC<HUDProps> = ({ tempoParado, tempoRodando }) => {
             textShadow: "0 1px 6px #000a",
           }}
         >
-          {speedValue.toFixed(0)}
+          {currentSpeed.toFixed(0)}
         </text>
         <text
-          x={cx}
-          y={cy + 38}
+          x={CHART_CENTER_X}
+          y={CHART_CENTER_Y + 38}
           textAnchor="middle"
           style={{
             fill: "#aad",
@@ -168,34 +176,20 @@ const HUD: React.FC<HUDProps> = ({ tempoParado, tempoRodando }) => {
           km/h
         </text>
       </PieChart>
-      <div style={{ marginTop: 0 }}>
-        {/* Direção visual (seta) */}
-        <div style={{ margin: "8px 0" }}>
+      <div>
+        <div className={styles.directionWrapper}>
           <span style={{ fontSize: 13 }}>
             {t("angle", { defaultValue: "Ângulo" })}:{" "}
             <span
-              style={{
-                display: "inline-block",
-                transform: `rotate(${position.ang}deg)`,
-                transition: "transform 0.2s"
-              }}
+              className={styles.directionArrow}
+              style={{ transform: `rotate(${position.ang}deg)` }}
             >
               ➤
-            </span>
-            {" "}
+            </span>{" "}
             {position.ang.toFixed(1)}°
           </span>
         </div>
-        {/* Nome da rua/endereço */}
-        <div style={{
-          fontSize: 13,
-          color: "#ddd",
-          minHeight: 18,
-          maxWidth: 200,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap"
-        }}>
+        <div className={styles.addressText}>
           {currentPoint.address || "Endereço desconhecido"}
         </div>
       </div>
