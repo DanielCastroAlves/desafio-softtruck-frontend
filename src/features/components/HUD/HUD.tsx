@@ -7,8 +7,6 @@ import { useGps } from "../../../contexts/GpsContext";
 
 import gpsData from "../../../data/frontend_data_gps_enriched_with_address.json";
 
-import type { HUDProps } from "../../../types/hud";
-
 import styles from "./HUD.module.scss";
 
 const MAX_SPEED_KMH = 200;
@@ -22,13 +20,6 @@ const CHART_CENTER_X = 100;
 const CHART_CENTER_Y = 110;
 const CHART_INNER_RADIUS = 58;
 const CHART_OUTER_RADIUS = 95;
-
-function formatElapsed(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const min = Math.floor(seconds / 60);
-  const sec = Math.floor(seconds % 60);
-  return `${min}:${sec.toString().padStart(2, "0")}`;
-}
 
 type NeedleProps = {
   value: number;
@@ -79,9 +70,9 @@ function renderNeedle({
   ];
 }
 
-const HUD: React.FC<HUDProps> = ({ tempoParado, tempoRodando }) => {
+const HUD: React.FC = () => {
   const { t } = useTranslation();
-  const { position, selectedCourse, isStopped } = useGps();
+  const { position, selectedCourse } = useGps();
 
   const points = gpsData.courses[selectedCourse]?.gps ?? [];
   const closestIdx =
@@ -99,30 +90,9 @@ const HUD: React.FC<HUDProps> = ({ tempoParado, tempoRodando }) => {
 
   const currentPoint = points[closestIdx] || {};
   const currentSpeed = Math.max(0, Math.min(position.vel, MAX_SPEED_KMH));
-  const statusText = isStopped
-    ? t("stopped", { defaultValue: "PARADO" })
-    : t("moving", { defaultValue: "EM MOVIMENTO" });
 
   return (
     <div className={styles.hudContainer}>
-      <div className={styles.vehicleStatus}>
-        <span
-          className={`${styles.vehicleStatusLabel} ${
-            isStopped
-              ? styles.vehicleStatusLabelStopped
-              : styles.vehicleStatusLabelMoving
-          }`}
-        >
-          {statusText}
-        </span>
-        <div className={styles.speedStopped}>
-          Parado: {formatElapsed(tempoParado)}
-        </div>
-        <div className={styles.speedRunning}>
-          Rodando: {formatElapsed(tempoRodando)}
-        </div>
-      </div>
-
       <PieChart width={200} height={130}>
         <Pie
           dataKey="value"

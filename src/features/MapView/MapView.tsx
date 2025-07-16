@@ -204,7 +204,7 @@ const MapView = () => {
         onLanguageChange={changeLanguage}
         language={currentLanguage}
       />
-      <HUD tempoParado={0} tempoRodando={0} />
+      <HUD />
     </div>
   );
 };
