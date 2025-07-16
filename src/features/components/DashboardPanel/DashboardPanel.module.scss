@@ -1,0 +1,36 @@
+.panel {
+  position: absolute;
+  left: 32px;
+  bottom: 32px;
+  z-index: 20;
+  min-width: 340px;
+  max-width: 400px;
+  transition: all 0.25s cubic-bezier(.4,2,.6,1);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  &[data-open="false"] {
+    min-width: 60px;
+    max-width: 60px;
+    height: 60px;
+    background: rgba(34,34,40,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.toggleButton {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 21;
+  background: #fff;
+  box-shadow: 0 2px 8px #0001;
+}
+
+.card {
+  border-radius: 12px;
+  min-width: 340px;
+  width: 100%;
+  background: transparent;
+}
