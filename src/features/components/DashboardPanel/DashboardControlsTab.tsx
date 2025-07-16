@@ -1,11 +1,11 @@
 import React from "react";
 import {
-  Box,
   IconButton,
+  Box,
   Typography,
   FormControlLabel,
   Switch,
-  Chip,
+  Chip
 } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
@@ -23,9 +23,13 @@ const DashboardControlsTab: React.FC<DashboardPanelProps> = ({
   setSpeedMode,
   realSpeed,
 }) => {
+  // Exibe o valor correto conforme o modo
   const shownSpeed = speedMode === "auto" ? realSpeed : speed;
 
-  const handleSpeedModeChange = (mode: "auto" | "manual") => setSpeedMode(mode);
+  // Função para mudar o modo
+  const handleSpeedModeChange = (mode: "auto" | "manual") => {
+    setSpeedMode(mode);
+  };
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -54,6 +58,7 @@ const DashboardControlsTab: React.FC<DashboardPanelProps> = ({
             style={{ width: 160, verticalAlign: "middle" }}
           />
         )}
+
         <span style={{ marginLeft: 8, fontWeight: 600 }}>
           {shownSpeed.toFixed(0)} km/h
         </span>
@@ -62,7 +67,9 @@ const DashboardControlsTab: React.FC<DashboardPanelProps> = ({
           control={
             <Switch
               checked={speedMode === "auto"}
-              onChange={(_, checked) => handleSpeedModeChange(checked ? "auto" : "manual")}
+              onChange={(_, checked) =>
+                handleSpeedModeChange(checked ? "auto" : "manual")
+              }
               color="primary"
             />
           }
@@ -70,6 +77,7 @@ const DashboardControlsTab: React.FC<DashboardPanelProps> = ({
           labelPlacement="end"
         />
       </Box>
+      {/* Exibe badge/log no modo auto */}
       {speedMode === "auto" && (
         <Chip
           icon={<SpeedIcon />}
