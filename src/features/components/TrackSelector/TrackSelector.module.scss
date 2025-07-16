@@ -1,7 +1,4 @@
 .button {
-  /* position: absolute; */   /* REMOVER */
-  /* top: 20px; */            /* REMOVER */
-  /* right: 20px; */          /* REMOVER */
   padding: 10px 16px;
   font-size: 16px;
   background-color: #3b9ddd;
@@ -9,5 +6,10 @@
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  /* z-index: 10; */          /* REMOVER */
+  transition: background 0.2s;
+
+  &:hover,
+  &:focus {
+    background-color: #277fc4;
+  }
 }
