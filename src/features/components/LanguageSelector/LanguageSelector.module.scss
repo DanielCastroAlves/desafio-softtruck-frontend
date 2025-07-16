@@ -1,25 +1,20 @@
-// .container {
-//   /* REMOVE o position e o z-index */
-//   background-color: rgba(0, 0, 0, 0.6);
-//   border-radius: 6px;
-//   padding: 6px 12px;
-//   display: flex;
-//   gap: 8px;
-// }
+.container {
+  display: flex;
+  gap: 10px;
+}
 
-// .button {
-//   /* REMOVE position absolute e todos offsets */
-//   padding: 10px 16px;
-//   font-size: 16px;
-//   background-color: #3b9ddd;
-//   color: white;
-//   border: none;
-//   border-radius: 6px;
-//   cursor: pointer;
-//   font-weight: bold;
-//   transition: background 0.3s;
-// }
+.button {
+  background: #eee;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  color: #444;
+  cursor: pointer;
+  transition: background 0.2s;
+}
 
-// .active {
-//   background-color: #28639b;
-// }
+.button.active {
+  background: #3b9ddd;
+  color: #fff;
+}

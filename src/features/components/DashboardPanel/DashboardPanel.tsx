@@ -1,4 +1,3 @@
-// DashboardPanel.tsx
 import React from "react";
 import { Box, Card, Tabs, Tab, IconButton } from "@mui/material";
 import MenuOpenIcon from "@mui/icons-material/MenuOpen";
@@ -32,7 +31,7 @@ const DashboardPanel: React.FC<DashboardPanelProps> = (props) => {
           </Tabs>
           {tab === 0 && <DashboardControlsTab {...props} />}
           {tab === 1 && <DashboardRouteTab {...props} />}
-          {tab === 2 && <DashboardLanguageTab {...props} />}
+          {tab === 2 && <DashboardLanguageTab />}
         </Card>
       )}
     </Box>

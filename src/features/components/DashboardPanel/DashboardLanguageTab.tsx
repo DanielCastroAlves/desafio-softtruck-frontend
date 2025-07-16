@@ -1,21 +1,13 @@
 import React from "react";
-import { Box, IconButton, Typography } from "@mui/material";
-import LanguageIcon from "@mui/icons-material/Language";
-import type { DashboardPanelProps } from "./DashboardPanel.types";
+import LanguageSelector from "../LanguageSelector/LanguageSelector";
+import { Box, Typography } from "@mui/material";
 
-const DashboardLanguageTab: React.FC<DashboardPanelProps> = ({
-  onLanguageChange,
-  language,
-}) => (
-  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-    <IconButton
-      onClick={() => onLanguageChange(language === "pt" ? "en" : "pt")}
-    >
-      <LanguageIcon />
-    </IconButton>
-    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-      {language === "pt" ? "Português" : "English"}
+const DashboardLanguageTab: React.FC = () => (
+  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, mt: 2 }}>
+    <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+      Idioma do sistema
     </Typography>
+    <LanguageSelector />
   </Box>
 );
 
